@@ -1,0 +1,14 @@
+{
+  "name": "channel1",
+  "version": "1.0.0",
+  "description": "channel_1",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "joseph",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.17.0"
+  }
+}

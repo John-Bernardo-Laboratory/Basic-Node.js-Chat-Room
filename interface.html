@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Group Chat</title>
+</head>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+    }
+
+    .container {
+        display: flex;
+        height: 100vh;
+    }
+
+    .sidebar {
+        flex: 1;
+        background-color: #333;
+        color: #fff;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar h2 {
+        margin-bottom: 20px;
+    }
+
+    .channel-list {
+        margin: 0;
+        padding: 0;
+        list-style-type: none;
+    }
+
+    .channel-list li {
+        margin-bottom: 10px;
+    }
+
+    .channel-list li button {
+        background-color: transparent;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 8px;
+        width: 100%;
+        text-align: left;
+    }
+
+    .channel-list li button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .content {
+        flex: 3;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message {
+        word-wrap: break-word;
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        max-width: 40%;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+
+    .sent {
+        align-self: flex-end;
+        background-color: #DCF8C6;
+        color: #000;
+        max-width: 40%;
+    }
+
+    .received {
+        align-self: flex-start;
+        background-color: #EAEAEA;
+        color: #000;
+        max-width: 40%;
+    }
+
+
+    .input-container {
+        display: flex;
+        align-items: center;
+    }
+
+    .input-container input[type="text"] {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin-right: 10px;
+    }
+
+    .input-container button {
+        padding: 10px 20px;
+        background-color: #007bff;
+        border: none;
+        color: #fff;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .input-container button:hover {
+        background-color: #0056b3;
+    }
+</style>
+
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Channels</h2>
+            <ul class="channel-list">
+                <li><button data-port="5001" data-channel="Mathematics">Mathematics</button></li>
+                <li><button data-port="5002" data-channel="Physics">Physics</button></li>
+                <li><button data-port="5003" data-channel="Chemistry">Chemistry</button></li>
+                <li><button data-port="5004" data-channel="Programming">Programming</button></li>
+                <li><button data-port="5005" data-channel="Electronics">Electronics</button></li>
+            </ul>
+        </div>
+        <div class="content">
+            <h2 id="channelName">Mathematics</h2>
+            <div class="message-container" id="log"></div>
+            <div class="input-container">
+                <input type="text" placeholder="Type your message" id="text">
+                <button id="send">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var name = prompt("username:");
+
+        if (name == "") {
+            name = "Anonymous";
+        }
+
+        var sock;
+        var log = document.getElementById('log');
+        var channelName = document.getElementById('channelName');
+        var messages = {};
+        var currentChannel = 'Mathematics';
+
+        function connectToServer(port, channel) {
+            if (sock) {
+                sock.close();
+            }
+
+            currentChannel = channel;
+
+            if (!messages[channel]) {
+                messages[channel] = [];
+            }
+
+            displayMessages(channel);
+
+            sock = new WebSocket("ws://localhost:" + port);
+
+            sock.onopen = function () {
+                sock.send(JSON.stringify({
+                    type: "name",
+                    data: name
+                }));
+                channelName.textContent = channel;
+            };
+
+            sock.onmessage = function (event) {
+                var json = JSON.parse(event.data);
+                var senderName = json.name;
+                var messageContent = json.data;
+                var message = `<div class="message received">${senderName} > ${messageContent}</div>`;
+                messages[channel].push(message);
+                displayMessages(channel);
+            };
+        }
+
+        function displayMessages(channel) {
+            log.innerHTML = messages[channel].join('');
+            log.scrollTop = log.scrollHeight; 
+        }
+
+        document.querySelector('.channel-list').addEventListener('click', function (event) {
+            if (event.target.tagName === 'BUTTON') {
+                var port = event.target.getAttribute('data-port');
+                var channel = event.target.getAttribute('data-channel');
+                connectToServer(port, channel);
+            }
+        });
+
+        document.getElementById('send').onclick = function () {
+            sendMessage();
+        };
+
+        document.getElementById('text').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            var text = document.getElementById('text').value.trim();
+            if (text !== '') {
+                if (sock && sock.readyState === WebSocket.OPEN) {
+                    sock.send(JSON.stringify({
+                        type: "message",
+                        data: text
+                    }));
+                    var message = `<div class="message sent">${text}</div>`;
+                    messages[currentChannel].push(message);
+                    displayMessages(currentChannel);
+                    document.getElementById('text').value = ''; 
+                } else {
+                    log.innerHTML += `<div class="message system">WebSocket is not open. Please select a channel.</div>`;
+                    log.scrollTop = log.scrollHeight; 
+                }
+            }
+        }
+
+        window.onload = function () {
+            connectToServer(5001, 'Mathematics');
+        };
+    </script>
+</body>
+
+</html>
